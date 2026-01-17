@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON ব্যাকআপ ও রিস্টোর ক্যাশ মেমো</title>
+    <style>
+        :root { --primary: #1a237e; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eaeff2; margin: 0; padding: 10px; }
+
+        .no-print { 
+            max-width: 900px; margin: 0 auto 20px; background: #fff; padding: 15px; 
+            border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid var(--primary);
+        }
+        .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        
+        .btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-blue { background: var(--primary); color: white; }
+        .btn-purple { background: #673ab7; color: white; } /* ব্যাকআপ ডাউনলোড */
+        .btn-orange { background: #ff9800; color: white; } /* রিস্টোর */
+        .btn-red { background: #d32f2f; color: white; }
+        .btn-green { background: #2e7d32; color: white; width: 100%; font-size: 18px; margin-top: 10px; }
+        
+        .memo-wrapper { display: flex; justify-content: center; padding-bottom: 50px; }
+        .a5-container { 
+            width: 148mm; min-height: 210mm; background: #fff; padding: 10mm; 
+            border: 2px solid var(--primary); display: flex; flex-direction: column;
+        }
+
+        .header { display: flex; justify-content: space-between; border-bottom: 3px solid var(--primary); padding-bottom: 10px; margin-bottom: 15px; }
+        .school-info { text-align: right; flex: 1; }
+        .school-info h1 { margin: 0; font-size: 24px; color: var(--primary); font-weight: 800; }
+
+        .memo-title { text-align: center; margin: 15px 0; }
+        .memo-title span { background: var(--primary); color: white; padding: 5px 35px; border-radius: 50px; font-weight: bold; -webkit-print-color-adjust: exact; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        table th, table td { border: 1px solid var(--primary); padding: 8px; text-align: center; font-size: 14px; }
+        table th { background: var(--primary) !important; color: white !important; -webkit-print-color-adjust: exact; }
+        
+        .del-cell { color: red; cursor: pointer; font-weight: bold; }
+
+        [contenteditable="true"] { outline: none; min-height: 20px; }
+        [contenteditable="true"]:focus { background: #fffde7; }
+
+        .footer-section { margin-top: auto; }
+        .calc-area { display: flex; justify-content: space-between; align-items: flex-end; }
+        .calc-box { width: 190px; border: 2px solid var(--primary); border-radius: 6px; overflow: hidden; }
+        .calc-row { display: flex; justify-content: space-between; padding: 7px 10px; font-weight: bold; border-bottom: 1px solid #eee; }
+        .grand-total { background: var(--primary); color: white; -webkit-print-color-adjust: exact; }
+
+        .sign-area { display: flex; justify-content: space-between; margin-top: 50px; }
+        .sign-box { border-top: 2px solid var(--primary); width: 130px; text-align: center; font-size: 13px; font-weight: bold; padding-top: 5px; color: var(--primary); }
+
+        @media print {
+            .no-print, .del-cell { display: none !important; }
+            body { background: white; padding: 0; }
+            .a5-container { border: 2px solid var(--primary) !important; width: 148mm; margin: 0 auto; }
+            @page { size: A5; margin: 0; }
+        }
+    </style>
+</head>
+<body onload="autoLoad()">
+
+<div class="no-print">
+    <h3>ক্যাশমেমো প্যানেল</h3>
+    <div class="controls">
+        <button class="btn btn-blue" onclick="addRow()">➕ নতুন সারি</button>
+        <button class="btn btn-purple" onclick="downloadJSON()">📥 ব্যাকআপ (JSON) সেভ</button>
+        <button class="btn btn-orange" onclick="document.getElementById('importFile').click()">📤 ফাইল থেকে রিস্টোর</button>
+        <button class="btn btn-red" onclick="clearMemo()">🧹 সব মুছুন</button>
+        <input type="file" id="importFile" style="display:none" accept=".json" onchange="importJSON(this)">
+        <input type="file" accept="image/*" onchange="previewLogo(this)" style="font-size: 11px;">
+    </div>
+    <button class="btn btn-green" onclick="window.print()">🖨️ প্রিন্ট করুন</button>
+</div>
+
+<div class="memo-wrapper">
+    <div class="a5-container">
+        <div class="header">
+            <div style="width: 60px;"><img id="dispLogo" src="https://via.placeholder.com/60?text=LOGO" style="max-width:100%;"></div>
+            <div class="school-info">
+                <h1 id="shopName" contenteditable="true">প্রতিষ্ঠানের নাম</h1>
+                <p id="shopAddr" contenteditable="true">ঠিকানা ও মোবাইল নম্বর</p>
+            </div>
+        </div>
+
+        <div class="memo-title"><span>CASH MEMO</span></div>
+
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px;">
+            <div style="flex:1">
+                নাম: <span id="cName" contenteditable="true" style="border-bottom: 1px dotted #000; min-width: 180px; display: inline-block;"></span><br>
+                ঠিকানা: <span id="cAddr" contenteditable="true" style="border-bottom: 1px dotted #000; min-width: 170px; display: inline-block;"></span>
+            </div>
+            <div style="text-align: right; font-weight: bold;">
+                ভাউচার: <span id="vNo" contenteditable="true">#1001</span><br>
+                তারিখ: <span id="vDate" contenteditable="true"></span>
+            </div>
+        </div>
+
+        <table id="mainTable">
+            <thead>
+                <tr>
+                    <th width="8%">ক্রঃ</th>
+                    <th width="42%">বিবরণ</th>
+                    <th width="15%">পরিমাণ</th>
+                    <th width="15%">দর</th>
+                    <th width="20%">মোট টাকা</th>
+                    <th class="no-print" width="5%"></th>
+                </tr>
+            </thead>
+            <tbody id="memoBody"></tbody>
+            <tfoot>
+                <tr style="background:#f0f2f5; font-weight:bold;">
+                    <td colspan="4" style="text-align: right;">সর্বমোট:</td>
+                    <td id="tableTotal"></td>
+                    <td class="no-print"></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="footer-section">
+            <div class="calc-area">
+                <div style="flex:1; font-size: 12px; font-weight:bold;">
+                    কথায়: <span id="words">................</span> টাকা মাত্র।
+                </div>
+                <div class="calc-box">
+                    <div class="calc-row"><span>মোট:</span> <span id="subT">0.00</span></div>
+                    <div class="calc-row" style="color:red;"><span>ডিসকাউন্ট:</span> <span contenteditable="true" id="disc">0</span></div>
+                    <div class="calc-row grand-total"><span>সর্বমোট:</span> <span id="grandT">0.00</span></div>
+                </div>
+            </div>
+            <div class="sign-area">
+                <div class="sign-box" contenteditable="true">ক্রেতার স্বাক্ষর</div>
+                <div class="sign-box" contenteditable="true">কর্তৃপক্ষের স্বাক্ষর</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('vDate').innerText = new Date().toLocaleDateString('bn-BD');
+
+    // ডাটা কালেকশন ফাংশন
+    function collectData() {
+        const items = [];
+        document.querySelectorAll('#memoBody tr').forEach(row => {
+            items.push({
+                desc: row.cells[1].innerText,
+                qty: row.cells[2].innerText,
+                price: row.cells[3].innerText
+            });
+        });
+        return {
+            shopName: document.getElementById('shopName').innerText,
+            shopAddr: document.getElementById('shopAddr').innerText,
+            cName: document.getElementById('cName').innerText,
+            cAddr: document.getElementById('cAddr').innerText,
+            vNo: document.getElementById('vNo').innerText,
+            vDate: document.getElementById('vDate').innerText,
+            disc: document.getElementById('disc').innerText,
+            logo: document.getElementById('dispLogo').src,
+            items: items
+        };
+    }
+
+    // ১. জেসন ফাইল ডাউনলোড (JSON SAVE)
+    function downloadJSON() {
+        const dataStr = JSON.stringify(collectData(), null, 4);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        const exportFileDefaultName = 'memo_backup_' + new Date().getTime() + '.json';
+
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+    }
+
+    // ২. জেসন ফাইল থেকে রিস্টোর (JSON RESTORE)
+    function importJSON(input) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                renderMemo(data);
+                saveToLocal(); // রিস্টোর করার পর লোকাল স্টোরেজেও আপডেট করে নেবে
+                alert("ব্যাকআপ সফলভাবে লোড হয়েছে!");
+            } catch (err) {
+                alert("ভুল ফাইল! দয়া করে সঠিক JSON ফাইল সিলেক্ট করুন।");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function renderMemo(data) {
+        document.getElementById('shopName').innerText = data.shopName;
+        document.getElementById('shopAddr').innerText = data.shopAddr;
+        document.getElementById('cName').innerText = data.cName;
+        document.getElementById('cAddr').innerText = data.cAddr;
+        document.getElementById('vNo').innerText = data.vNo;
+        document.getElementById('vDate').innerText = data.vDate;
+        document.getElementById('disc').innerText = data.disc;
+        document.getElementById('dispLogo').src = data.logo;
+
+        const tbody = document.getElementById('memoBody');
+        tbody.innerHTML = "";
+        data.items.forEach(i => addRow(i.desc, i.qty, i.price));
+        calculateAll();
+    }
+
+    // লোকাল স্টোরেজ অটো-সেভ
+    function saveToLocal() {
+        localStorage.setItem('memo_auto_save', JSON.stringify(collectData()));
+    }
+
+    function addRow(desc="", qty="", price="") {
+        const tbody = document.getElementById('memoBody');
+        const nextNo = tbody.rows.length + 1;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td contenteditable="true">${nextNo}</td>
+            <td contenteditable="true" style="text-align: left;">${desc}</td>
+            <td contenteditable="true" class="qty">${qty}</td>
+            <td contenteditable="true" class="price">${price}</td>
+            <td class="line-total"></td>
+            <td class="del-cell no-print" onclick="this.parentElement.remove(); reNumber(); calculateAll(); saveToLocal();">✖</td>
+        `;
+        tbody.appendChild(row);
+        calculateAll();
+    }
+
+    function reNumber() {
+        document.querySelectorAll('#memoBody tr').forEach((row, index) => {
+            row.cells[0].innerText = index + 1;
+        });
+    }
+
+    function calculateAll() {
+        let subtotal = 0;
+        document.querySelectorAll('#memoBody tr').forEach(row => {
+            const qty = parseFloat(row.querySelector('.qty').innerText) || 0;
+            const price = parseFloat(row.querySelector('.price').innerText) || 0;
+            const total = qty * price;
+            row.querySelector('.line-total').innerText = total > 0 ? total.toFixed(2) : "";
+            if(total > 0) subtotal += total;
+        });
+
+        const disc = parseFloat(document.getElementById('disc').innerText) || 0;
+        const final = subtotal - disc;
+        document.getElementById('tableTotal').innerText = subtotal.toFixed(2);
+        document.getElementById('subT').innerText = subtotal.toFixed(2);
+        document.getElementById('grandT').innerText = final.toFixed(2);
+        document.getElementById('words').innerText = final > 0 ? nToWords(final) : "................";
+    }
+
+    document.addEventListener('input', () => { calculateAll(); saveToLocal(); });
+
+    function autoLoad() {
+        const saved = localStorage.getItem('memo_auto_save');
+        if(saved) renderMemo(JSON.parse(saved));
+        else addRow();
+    }
+
+    function clearMemo() {
+        if(confirm("সব মুছবেন?")) {
+            localStorage.removeItem('memo_auto_save');
+            location.reload();
+        }
+    }
+
+    function previewLogo(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => { document.getElementById('dispLogo').src = e.target.result; saveToLocal(); };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function nToWords(n) {
+        const units = ["", "এক", "দুই", "তিন", "চার", "পাঁচ", "ছয়", "সাত", "আট", "নয়"];
+        const teens = ["দশ", "এগারো", "বারো", "তেরো", "চৌদ্দ", "পনেরো", "ষোলো", "সতেরো", "আঠারো", "উনিশ"];
+        const tens = ["", "", "বিশ", "ত্রিশ", "চল্লিশ", "পঞ্চাশ", "ষাট", "সত্তর", "আশি", "নব্বই"];
+        function convert(num) {
+            let res = "";
+            if (num >= 10000000) { res += convert(Math.floor(num / 10000000)) + " কোটি "; num %= 10000000; }
+            if (num >= 100000) { res += convert(Math.floor(num / 100000)) + " লক্ষ "; num %= 100000; }
+            if (num >= 1000) { res += convert(Math.floor(num / 1000)) + " হাজার "; num %= 1000; }
+            if (num >= 100) { res += units[Math.floor(num / 100)] + "শত "; num %= 100; }
+            if (num >= 20) { res += tens[Math.floor(num / 10)] + " " + units[num % 10]; }
+            else if (num >= 10) { res += teens[num - 10]; }
+            else if (num > 0) { res += units[num]; }
+            return res.trim();
+        }
+        return convert(Math.floor(n));
+    }
+</script>
+
+</body>
+</html>
