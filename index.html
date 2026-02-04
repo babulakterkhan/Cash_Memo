@@ -2,7 +2,7 @@
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
-    <title>BCTI - Master Memo Final Pro</title>
+    <title>BCTI - Master Memo Pro (Width Adjusted)</title>
     <style>
         body { font-family: 'Arial', sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
         .no-print { 
@@ -36,9 +36,22 @@
         .item-row { width: 100%; display: flex; align-items: flex-start; }
 
         .col-sl { position: absolute; left: 15mm; width: 12mm; text-align: center; }
-        .col-desc { position: absolute; left: 32mm; width: 60mm; white-space: normal; word-wrap: break-word; line-height: 1.2; }
-        .col-dur { position: absolute; left: 95mm; width: 20mm; text-align: center; }
-        .col-qty { position: absolute; left: 115mm; width: 15mm; text-align: center; }
+        
+        /* ডেসক্রিপশন কলামের উইডথ কমানো হয়েছে (৫৫ মিমি) */
+        .col-desc { 
+            position: absolute; 
+            left: 32mm; 
+            width: 40mm; 
+            white-space: normal; 
+            word-wrap: break-word; 
+            overflow-wrap: break-word; 
+            line-height: 1.2; 
+            max-height: 10.6em; 
+            overflow: hidden; 
+        }
+
+        .col-dur { position: absolute; left: 80mm; width: 20mm; text-align: center; }
+        .col-qty { position: absolute; left: 105mm; width: 15mm; text-align: center; }
         .col-rate { position: absolute; left: 132mm; width: 18mm; text-align: center; }
         .col-amount { position: absolute; left: 152mm; width: 15mm; text-align: right; }
 
@@ -54,7 +67,7 @@
 
 <div class="no-print">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin:0; color:#1a237e;">BCTI - Final Calculation Pro</h3>
+        <h3 style="margin:0; color:#1a237e;">BCTI - Master Control Pro</h3>
         <button id="adminBtn" class="btn-admin" onclick="toggleAdmin()">🔐 Admin Setup</button>
     </div>
 
@@ -227,7 +240,7 @@
 
     function backupData() {
         saveSettings(false); 
-        const settings = localStorage.getItem('bcti_master_v31');
+        const settings = localStorage.getItem('bcti_master_v33');
         const blob = new Blob([settings], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -238,7 +251,7 @@
     function restoreData(event) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            localStorage.setItem('bcti_master_v31', e.target.result);
+            localStorage.setItem('bcti_master_v33', e.target.result);
             location.reload();
         };
         reader.readAsText(event.target.files[0]);
@@ -275,12 +288,12 @@
                 items: items
             }
         };
-        localStorage.setItem('bcti_master_v31', JSON.stringify(s));
+        localStorage.setItem('bcti_master_v33', JSON.stringify(s));
         if(showAlert) alert("সবকিছু সেভ হয়েছে!");
     }
 
     function loadSettings() {
-        const s = JSON.parse(localStorage.getItem('bcti_master_v31'));
+        const s = JSON.parse(localStorage.getItem('bcti_master_v33'));
         if(s) {
             const c = s.conf;
             document.getElementById('font-size').value = c.fs || 15;
